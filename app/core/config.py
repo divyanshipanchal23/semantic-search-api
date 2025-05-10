@@ -5,10 +5,8 @@ from pydantic_settings import BaseSettings
 # Base directory of the project
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Determine which dataset file to use
-DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset.csv")
-NEW_DATA_PATH = os.path.join(BASE_DIR, "data", "newdata.csv")
-DATA_PATH = NEW_DATA_PATH if os.path.exists(NEW_DATA_PATH) else DEFAULT_DATA_PATH
+# Set data path to newdata.csv
+DATA_PATH = os.path.join(BASE_DIR, "data", "newdata.csv")
 
 class Settings(BaseSettings):
     """

@@ -14,15 +14,8 @@ class DataProcessor:
     Processor for loading and handling company data.
     """
     
-    # Column name mappings between different dataset formats
+    # Column name mappings for newdata.csv
     COLUMN_MAPPINGS = {
-        # Original dataset.csv column names
-        "Company Name": "company_name",
-        "Stock Symbol": "stock_symbol",
-        "Sector": "sector",
-        "Company Description": "description",
-        
-        # newdata.csv column names
         "name": "company_name",
         "symbol": "stock_symbol",
         "sector": "sector",
@@ -36,16 +29,7 @@ class DataProcessor:
         Args:
             data_path: Path to the CSV data file. If None, uses default from settings.
         """
-        # Override default data path if a new one is provided in settings
-        default_data_path = settings.DATA_PATH
-        # Check if newdata.csv exists and use it instead if available
-        newdata_path = os.path.join(os.path.dirname(default_data_path), "newdata.csv")
-        if os.path.exists(newdata_path) and data_path is None:
-            logger.info(f"Found newdata.csv, using it instead of dataset.csv")
-            self.data_path = newdata_path
-        else:
-            self.data_path = data_path or default_data_path
-            
+        self.data_path = data_path or settings.DATA_PATH
         self.raw_data = None
         self.processed_data = None
         self.companies = []
@@ -68,7 +52,7 @@ class DataProcessor:
     
     def _normalize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Normalize column names to a standard format regardless of input dataset.
+        Normalize column names to a standard format.
         
         Args:
             df: DataFrame with original column names

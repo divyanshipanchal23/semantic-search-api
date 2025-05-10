@@ -35,7 +35,7 @@ semanticsearchapi/
 │   ├── services/         # Business logic services
 │   └── main.py           # Application entry point
 ├── data/                 # Data files
-│   └── dataset.csv       # Company dataset
+│   └── newdata.csv       # Company dataset with 500+ companies
 ├── docs/                 # Project documentation
 ├── tests/                # Test suite
 ├── .gitignore

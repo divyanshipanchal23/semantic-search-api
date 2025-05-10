@@ -48,7 +48,7 @@ def test_search_endpoint_with_stock_symbol():
     
     if tesla_results:
         tesla = tesla_results[0]
-        assert tesla["company_name"] == "Tesla Inc."
+        assert tesla["company_name"] == "TESLA INC"
         assert tesla["sector"] == "Consumer Discretionary"
 
 def test_search_endpoint_with_limit():

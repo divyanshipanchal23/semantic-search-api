@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 
 class CompanyBase(BaseModel):
@@ -12,8 +12,7 @@ class Company(CompanyBase):
     """Model representing a company with all its data."""
     combined_text: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CompanyResult(CompanyBase):
     """Model representing a company search result with similarity score."""

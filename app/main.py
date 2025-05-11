@@ -66,6 +66,7 @@ def create_app() -> FastAPI:
 
 app = create_app()
 
+
 @app.get("/")
 async def root():
     """

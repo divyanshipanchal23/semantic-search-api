@@ -37,8 +37,6 @@ semanticsearchapi/
 ├── data/                 # Data files
 │   ├── newdata.csv       # Company dataset with 500+ companies
 │   └── vectordb/         # Vector database storage directory
-├── docs/                 # Project documentation
-├── tests/                # Test suite
 ├── data_embedding_setup.py  # Script to set up vector database
 ├── .gitignore
 ├── README.md
@@ -134,12 +132,6 @@ Example response:
 ```
 
 ## Development
-
-### Running Tests
-
-```bash
-pytest tests/
-```
 
 ### Data Pipeline
 

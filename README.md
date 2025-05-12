@@ -35,9 +35,11 @@ semanticsearchapi/
 │   ├── services/         # Business logic services
 │   └── main.py           # Application entry point
 ├── data/                 # Data files
-│   └── newdata.csv       # Company dataset with 500+ companies
+│   ├── newdata.csv       # Company dataset with 500+ companies
+│   └── vectordb/         # Vector database storage directory
 ├── docs/                 # Project documentation
 ├── tests/                # Test suite
+├── data_embedding_setup.py  # Script to set up vector database
 ├── .gitignore
 ├── README.md
 └── requirements.txt      # Dependencies
@@ -65,13 +67,27 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. **Run the application**
+4. **Set up the vector database**
+
+This is a one-time process that converts the CSV data into vector embeddings and stores them in ChromaDB:
+
+```bash
+python data_embedding_setup.py
+```
+
+If you need to rebuild the vector database (e.g., after updating your dataset), use:
+
+```bash
+python data_embedding_setup.py --force
+```
+
+5. **Run the application**
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-5. **Access the API**
+6. **Access the API**
 
 - API documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
 - API endpoints: [http://localhost:8000/api/v1/search](http://localhost:8000/api/v1/search)
@@ -127,7 +143,40 @@ pytest tests/
 
 ### Data Pipeline
 
-The system processes company data from a CSV file, creates embeddings, and stores them in a vector database for efficient similarity search.
+The system uses a two-phase approach for optimal performance:
+
+1. **Data Embedding Setup (One-time Process)**:
+   - The `data_embedding_setup.py` script loads company data from CSV
+   - Generates vector embeddings using the Sentence-Transformers model
+   - Stores embeddings in a persistent ChromaDB database
+   - Only needs to be run once or after updating the dataset
+
+2. **Search Process (Runtime)**:
+   - API loads only company metadata (not generating embeddings)
+   - User query is converted to a vector embedding
+   - Vector similarity search is performed against the pre-built database
+   - Results are returned based on semantic similarity
+
+This approach separates the computationally intensive embedding generation from the search API, ensuring optimal performance.
+
+## Performance Optimizations
+
+### Vector Database Efficiency
+
+The system has been optimized for production use:
+
+1. **One-time Embedding Generation**: The most computationally intensive task (generating embeddings) is done once during setup, not on application startup.
+
+2. **Persistent Vector Storage**: Company embeddings are stored in a persistent vector database (ChromaDB) at `data/vectordb/` and reused across application restarts.
+
+3. **Minimal Runtime Loading**: The application only loads:
+   - Company metadata for result formatting
+   - The embedding model for processing search queries
+   - The pre-built vector database connection
+
+4. **Singleton Pattern**: Both `SearchService` and `EmbeddingService` use a singleton pattern to ensure only one instance exists throughout the application lifecycle.
+
+5. **Smart Refresh Logic**: The setup script checks if vectors already exist and only regenerates them when explicitly requested.
 
 ## License
 

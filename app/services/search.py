@@ -2,8 +2,7 @@ import logging
 import numpy as np
 import chromadb
 import os
-from typing import List, Dict, Any, Optional
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import List, Optional
 
 from app.core.config import settings
 from app.core.models import Company, CompanyResult
@@ -15,49 +14,80 @@ logger = logging.getLogger(__name__)
 class SearchService:
     """
     Service for semantic search functionality.
+    Designed to work efficiently with a pre-populated vector database.
     """
+    
+    _instance = None
+    
+    def __new__(cls):
+        """
+        Ensure only one instance of SearchService is created (Singleton pattern).
+        """
+        if cls._instance is None:
+            logger.info("Creating SearchService singleton instance")
+            cls._instance = super(SearchService, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
     
     def __init__(self):
         """
         Initialize the search service with data processing and embedding components.
+        This will only execute its code once due to the singleton pattern.
         """
-        self.data_processor = DataProcessor()
-        self.embedding_service = EmbeddingService()
-        self.companies = {}
-        self.vector_db = None
-        self.collection = None
-        
-        # Initialize components
-        self._initialize()
+        if not hasattr(self, '_initialized') or not self._initialized:
+            logger.info("Initializing SearchService components")
+            self.data_processor = DataProcessor()
+            self.embedding_service = EmbeddingService()
+            self.companies = {}
+            self.vector_db = None
+            self.collection = None
+            
+            # Initialize components
+            self._initialize()
+            self._initialized = True
+        else:
+            logger.debug("SearchService already initialized, skipping initialization")
     
     def _initialize(self):
         """
-        Initialize the search service by loading data, generating embeddings, and setting up the vector DB.
+        Initialize the search service by setting up the vector DB connection
+        and loading company metadata (without re-embedding).
         """
         logger.info("Initializing search service")
         
-        # Load and process company data as objects
-        companies_list = self.data_processor.get_companies()
+        # Set up vector DB connection
+        self._setup_vector_db()
         
-        # Create a dictionary lookup of companies by stock symbol
-        self.companies = {company.stock_symbol: company for company in companies_list}
+        # Check if vector DB exists and has data
+        vector_count = self.collection.count()
+        if vector_count == 0:
+            logger.warning(
+                "Vector database is empty! You should run the data_embedding_setup.py script "
+                "to populate the vector database before using the search functionality."
+            )
+        else:
+            logger.info(f"Vector database contains {vector_count} entries")
         
-        # Generate embeddings
-        self.embedding_service.generate_embeddings(companies_list)
-        
-        # Set up Chroma vector DB
-        self._setup_vector_db(companies_list)
+        # Load only company metadata for result formatting (no embeddings)
+        self._load_company_metadata()
         
         logger.info("Search service initialization complete")
     
-    def _setup_vector_db(self, companies: List[Company]):
+    def _load_company_metadata(self):
         """
-        Set up the Chroma vector database.
-        
-        Args:
-            companies: List of Company objects.
+        Load only the company metadata needed for search results,
+        without generating or storing embeddings.
         """
-        logger.info("Setting up vector database")
+        logger.info("Loading company metadata for search results")
+        companies_list = self.data_processor.get_companies()
+        self.companies = {company.stock_symbol: company for company in companies_list}
+        logger.info(f"Loaded metadata for {len(self.companies)} companies")
+    
+    def _setup_vector_db(self):
+        """
+        Set up the Chroma vector database client and collection.
+        """
+        logger.info("Setting up vector database connection")
         
         # Ensure the vector DB directory exists
         os.makedirs(settings.VECTOR_DB_PATH, exist_ok=True)
@@ -71,28 +101,19 @@ class SearchService:
             metadata={"hnsw:space": "cosine"}  # Use cosine similarity for vector matching
         )
         
-        # Check if we need to add data to the collection
-        if self.collection.count() == 0:
-            # Prepare data for insertion
-            ids = [company.stock_symbol for company in companies]
-            embeddings = [self.embedding_service.get_embedding(symbol).tolist() for symbol in ids]
-            metadatas = [
-                {
-                    "company_name": company.company_name,
-                    "sector": company.sector,
-                    "description": company.description
-                } 
-                for company in companies
-            ]
-            
-            # Add embeddings to collection
-            self.collection.add(
-                ids=ids,
-                embeddings=embeddings,
-                metadatas=metadatas
-            )
-            
-            logger.info(f"Added {len(ids)} embeddings to vector database")
+        logger.info(f"Connected to vector database at {settings.VECTOR_DB_PATH}")
+    
+    def preload_all_components(self):
+        """
+        Explicitly preload components needed for search.
+        """
+        logger.info("Preloading search components")
+        
+        # Preload the embedding model for query processing
+        _ = self.embedding_service.generate_embedding("preload")
+        
+        logger.info("All components preloaded and ready for queries")
+        return self
     
     def search(self, query: str, limit: int = 5, sector: Optional[str] = None) -> List[CompanyResult]:
         """

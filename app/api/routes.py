@@ -6,12 +6,16 @@ from app.services.search import SearchService
 
 router = APIRouter()
 
+# Create a single global instance of SearchService
+search_service_instance = SearchService()
+
 # Dependency to get the search service instance
 def get_search_service():
     """
     Dependency for getting the search service instance.
+    Returns the singleton instance rather than creating a new one each time.
     """
-    return SearchService()
+    return search_service_instance
 
 @router.get("/search", response_model=SearchResponse)
 async def search_companies(
@@ -42,5 +46,5 @@ async def search_companies(
             query=query
         )
     except Exception as e:
-        # Log the error (in a real application)
+        # Log the error
         raise HTTPException(status_code=500, detail=f"Search error: {str(e)}") 

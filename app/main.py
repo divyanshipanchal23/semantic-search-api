@@ -4,7 +4,8 @@ from fastapi.openapi.utils import get_openapi
 import logging
 import os
 
-from app.api.routes import router as api_router
+from app.api.routes import router as api_router, search_service_instance
+from app.core.config import settings
 
 # Configure logging
 logging.basicConfig(
@@ -46,26 +47,28 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(api_router, prefix="/api/v1")
 
-    # Custom OpenAPI schema
-    def custom_openapi():
-        if app.openapi_schema:
-            return app.openapi_schema
-        openapi_schema = get_openapi(
-            title=app.title,
-            version=app.version,
-            description=app.description,
-            routes=app.routes,
-        )
-        # Custom schema modifications can be made here if needed
-        app.openapi_schema = openapi_schema
-        return app.openapi_schema
-
-    app.openapi = custom_openapi
+    # Register startup event to check and initialize search service
+    @app.on_event("startup")
+    def initialize_services():
+        """Initialize services at application startup."""
+        logger.info("Application starting: Pre-initializing search service")
+        
+        # Check if vector database directory exists
+        if not os.path.exists(settings.VECTOR_DB_PATH):
+            logger.warning(
+                "Vector database directory not found! Please run: \n"
+                "python data_embedding_setup.py\n"
+                "to set up the vector database before using the search functionality."
+            )
+        
+        # Preload the embedding model for query processing
+        search_service_instance.preload_all_components()
+        
+        logger.info("All services initialized and ready")
 
     return app
 
 app = create_app()
-
 
 @app.get("/")
 async def root():

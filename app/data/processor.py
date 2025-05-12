@@ -2,7 +2,6 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 import logging
 from pathlib import Path
-import os
 
 from app.core.config import settings
 from app.core.models import Company
@@ -11,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 class DataProcessor:
     """
-    Processor for loading and handling company data.
+    Processor for loading company metadata from CSV.
+    Simplified to focus only on essential functionality.
     """
     
     # Column name mappings for newdata.csv
@@ -30,25 +30,52 @@ class DataProcessor:
             data_path: Path to the CSV data file. If None, uses default from settings.
         """
         self.data_path = data_path or settings.DATA_PATH
-        self.raw_data = None
-        self.processed_data = None
         self.companies = []
     
-    def load_data(self) -> pd.DataFrame:
+    def get_companies(self) -> List[Company]:
         """
-        Load company data from CSV file.
+        Load and process company data from CSV file.
         
         Returns:
-            Pandas DataFrame containing the company data.
+            List of Company objects.
         """
-        logger.info(f"Loading data from {self.data_path}")
-        try:
-            self.raw_data = pd.read_csv(self.data_path)
-            logger.info(f"Successfully loaded {len(self.raw_data)} companies")
-            return self.raw_data
-        except Exception as e:
-            logger.error(f"Error loading data: {str(e)}")
-            raise
+        if not self.companies:
+            logger.info(f"Loading data from {self.data_path}")
+            try:
+                # Load CSV data
+                raw_data = pd.read_csv(self.data_path)
+                logger.info(f"Successfully loaded {len(raw_data)} companies")
+                
+                # Handle missing values
+                processed_data = raw_data.fillna("")
+                
+                # Normalize column names
+                processed_data = self._normalize_column_names(processed_data)
+                
+                # Create companies list
+                self.companies = []
+                
+                for _, row in processed_data.iterrows():
+                    # Create combined text for semantic search (used by data_embedding_setup.py)
+                    combined_text = f"{row['company_name']} {row['stock_symbol']} {row['sector']} {row['description']}"
+                    
+                    # Create company object
+                    company = Company(
+                        company_name=row['company_name'],
+                        stock_symbol=row['stock_symbol'],
+                        sector=row['sector'],
+                        description=row['description'],
+                        combined_text=combined_text
+                    )
+                    
+                    self.companies.append(company)
+                
+                logger.info(f"Successfully processed {len(self.companies)} companies")
+            except Exception as e:
+                logger.error(f"Error processing data: {str(e)}")
+                raise
+        
+        return self.companies
     
     def _normalize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -67,61 +94,4 @@ class DataProcessor:
         
         if column_mapping:
             return df.rename(columns=column_mapping)
-        return df
-    
-    def process_data(self) -> List[Company]:
-        """
-        Process and clean the company data, creating combined text for embeddings.
-        
-        Returns:
-            List of Company objects with processed data.
-        """
-        if self.raw_data is None:
-            self.load_data()
-        
-        logger.info("Processing company data")
-        
-        # Clean and process data
-        try:
-            # Handle missing values
-            self.processed_data = self.raw_data.fillna("")
-            
-            # Normalize column names
-            self.processed_data = self._normalize_column_names(self.processed_data)
-            
-            # Create companies list
-            self.companies = []
-            
-            for _, row in self.processed_data.iterrows():
-                # Create combined text for semantic search
-                combined_text = f"{row['company_name']} {row['stock_symbol']} {row['sector']} {row['description']}"
-                
-                # Create company object
-                company = Company(
-                    company_name=row['company_name'],
-                    stock_symbol=row['stock_symbol'],
-                    sector=row['sector'],
-                    description=row['description'],
-                    combined_text=combined_text
-                )
-                
-                self.companies.append(company)
-            
-            logger.info(f"Successfully processed {len(self.companies)} companies")
-            return self.companies
-            
-        except Exception as e:
-            logger.error(f"Error processing data: {str(e)}")
-            raise
-    
-    def get_companies(self) -> List[Company]:
-        """
-        Get the processed company data.
-        
-        Returns:
-            List of Company objects.
-        """
-        if not self.companies:
-            self.process_data()
-        
-        return self.companies 
+        return df 

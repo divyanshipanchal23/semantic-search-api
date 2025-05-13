@@ -5,9 +5,10 @@ Data Embedding Setup Script
 This script performs a one-time process to:
 1. Load company data from a CSV file
 2. Generate embeddings for each company
-3. Store the embeddings in a vector database (ChromaDB)
+3. Store the embeddings and ALL metadata in a vector database (ChromaDB)
 
 Run this script before starting the API server to prepare the vector database.
+After running this script, the API will not need to access the CSV file at runtime.
 """
 
 import os
@@ -64,7 +65,7 @@ def setup_vector_db():
 
 def populate_vector_db(collection, companies, embedding_service):
     """
-    Populate the vector database with company embeddings.
+    Populate the vector database with company embeddings and ALL metadata.
     
     Args:
         collection: The ChromaDB collection
@@ -79,16 +80,20 @@ def populate_vector_db(collection, companies, embedding_service):
     # Prepare data for insertion
     ids = [company.stock_symbol for company in companies]
     embeddings = [embeddings_dict[symbol].tolist() for symbol in ids]
+    
+    # Store ALL company metadata in the vector database
+    # This ensures we don't need to read from CSV at runtime
     metadatas = [
         {
             "company_name": company.company_name,
+            "stock_symbol": company.stock_symbol,
             "sector": company.sector,
             "description": company.description
         } 
         for company in companies
     ]
     
-    logger.info(f"Adding {len(ids)} company embeddings to vector database")
+    logger.info(f"Adding {len(ids)} company embeddings and metadata to vector database")
     
     # Add embeddings to collection
     collection.add(
@@ -97,7 +102,8 @@ def populate_vector_db(collection, companies, embedding_service):
         metadatas=metadatas
     )
     
-    logger.info(f"Successfully added {len(ids)} embeddings to vector database")
+    logger.info(f"Successfully added {len(ids)} companies to vector database")
+    logger.info("API can now run without requiring access to the original CSV file")
 
 def main(force_reload=False):
     """
@@ -135,6 +141,7 @@ def main(force_reload=False):
         populate_vector_db(collection, companies, embedding_service)
         
         logger.info("Vector database setup complete!")
+        logger.info("The API is now ready to run and will not need to access the CSV file at runtime.")
         
     except Exception as e:
         logger.error(f"Error setting up vector database: {str(e)}", exc_info=True)

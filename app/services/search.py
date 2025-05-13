@@ -2,11 +2,10 @@ import logging
 import numpy as np
 import chromadb
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from app.core.config import settings
 from app.core.models import Company, CompanyResult
-from app.data.processor import DataProcessor
 from app.services.embedding import EmbeddingService
 
 logger = logging.getLogger(__name__)
@@ -36,7 +35,6 @@ class SearchService:
         """
         if not hasattr(self, '_initialized') or not self._initialized:
             logger.info("Initializing SearchService components")
-            self.data_processor = DataProcessor()
             self.embedding_service = EmbeddingService()
             self.companies = {}
             self.vector_db = None
@@ -68,20 +66,42 @@ class SearchService:
         else:
             logger.info(f"Vector database contains {vector_count} entries")
         
-        # Load only company metadata for result formatting (no embeddings)
-        self._load_company_metadata()
+        # Load only company metadata from the vector database
+        self._load_company_metadata_from_db()
         
         logger.info("Search service initialization complete")
     
-    def _load_company_metadata(self):
+    def _load_company_metadata_from_db(self):
         """
-        Load only the company metadata needed for search results,
-        without generating or storing embeddings.
+        Load company metadata directly from the vector database instead of CSV.
+        This eliminates the need to re-read the CSV file on each application restart.
         """
-        logger.info("Loading company metadata for search results")
-        companies_list = self.data_processor.get_companies()
-        self.companies = {company.stock_symbol: company for company in companies_list}
-        logger.info(f"Loaded metadata for {len(self.companies)} companies")
+        logger.info("Loading company metadata from vector database")
+        
+        # Query the database with a dummy embedding to get all entries
+        # This is more efficient than reading from CSV
+        all_items = self.collection.get(
+            limit=10000  # Set a large limit to get all items
+        )
+        
+        # Process the metadata from the vector database
+        if all_items and "ids" in all_items and all_items["ids"]:
+            for i, stock_symbol in enumerate(all_items["ids"]):
+                if "metadatas" in all_items and all_items["metadatas"]:
+                    metadata = all_items["metadatas"][i]
+                    # Create a Company object from the metadata
+                    company = Company(
+                        company_name=metadata.get("company_name", ""),
+                        stock_symbol=stock_symbol,
+                        sector=metadata.get("sector", ""),
+                        description=metadata.get("description", ""),
+                        # No need for combined_text as we don't use it at runtime
+                    )
+                    self.companies[stock_symbol] = company
+            
+            logger.info(f"Loaded metadata for {len(self.companies)} companies from vector database")
+        else:
+            logger.warning("No metadata found in vector database")
     
     def _setup_vector_db(self):
         """

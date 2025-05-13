@@ -159,16 +159,17 @@ The system has been optimized for production use:
 
 1. **One-time Embedding Generation**: The most computationally intensive task (generating embeddings) is done once during setup, not on application startup.
 
-2. **Persistent Vector Storage**: Company embeddings are stored in a persistent vector database (ChromaDB) at `data/vectordb/` and reused across application restarts.
+2. **Persistent Vector Storage**: Company embeddings and all metadata are stored in a persistent vector database (ChromaDB) at `data/vectordb/` and reused across application restarts.
 
-3. **Minimal Runtime Loading**: The application only loads:
-   - Company metadata for result formatting
+3. **Zero CSV Dependency at Runtime**: After initial setup, the application operates completely independent of the original CSV file, retrieving all necessary data from the vector database.
+
+4. **Minimal Runtime Loading**: The application only loads:
    - The embedding model for processing search queries
-   - The pre-built vector database connection
+   - The pre-built vector database connection with company metadata
 
-4. **Singleton Pattern**: Both `SearchService` and `EmbeddingService` use a singleton pattern to ensure only one instance exists throughout the application lifecycle.
+5. **Singleton Pattern**: Both `SearchService` and `EmbeddingService` use a singleton pattern to ensure only one instance exists throughout the application lifecycle.
 
-5. **Smart Refresh Logic**: The setup script checks if vectors already exist and only regenerates them when explicitly requested.
+6. **Smart Refresh Logic**: The setup script checks if vectors already exist and only regenerates them when explicitly requested.
 
 ## License
 
